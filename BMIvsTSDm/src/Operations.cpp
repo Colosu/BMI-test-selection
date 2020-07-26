@@ -199,9 +199,89 @@ int Operations::GenerateTSDmTestSuite(Graph* g, int size, int pool, list<list<IO
 	return result;
 }
 
+void Operations::TestSetDiameter(Graph* g, list<list<IOpair>> TS, double &TSDm) {
+
+	list<list<IOpair>> aux1(TS);
+	TSDm = 0;
+	int size1 = aux1.size();
+	string STG[size1];
+	double STGC[size1];
+	double NCD[size1 - 1];
+	double C[size1];
+	zlibcomplete::ZLibCompressor* zlib = new zlibcomplete::ZLibCompressor();
+	string orig = "";
+	string comp = "";
+	double max = 0;
+	double compr = 0;
+	double min = 10000;
+	int pos = 0;
+
+	for (int i = 0; i < size1 - 1; i++) {
+		NCD[i] = 0;
+	}
+
+	for (int i = 0; i < size1; i++) {
+		STG[i] = to_St(aux1.front());
+		STGC[i] = zlib->compress(STG[i]).size();
+		C[i] = 0;
+		aux1.pop_front();
+	}
+
+	for (int k = 0; k < size1 - 1; k++) {
+		for (int i = 0; i < size1; i++) {
+			if (C[i] != -1) {
+				orig = "";
+				for (int j = 0; j < size1; j++) {
+					if (j != i && C[j] != -1) {
+						orig += STG[j];
+					}
+				}
+				comp = zlib->compress(orig);
+				C[i] = comp.size();
+			}
+		}
+
+
+		orig = "";
+		for (int i = 0; i < size1; i++) {
+			if (C[i] != -1) {
+				orig += STG[i];
+			}
+		}
+		comp = zlib->compress(orig);
+		compr = comp.size();
+
+		max = 0;
+		min = 10000;
+		pos = 0;
+		for (int i = 0; i < size1; i++) {
+			if (C[i] > max) {
+				max = C[i];
+				pos = i;
+			}
+			if (C[i] != -1 && STGC[i] < min) {
+				min = STGC[i];
+			}
+		}
+		NCD[k] = (compr - min)/max;
+		C[pos] = -1;
+	}
+
+	max = 0;
+	for (int k = 0; k < size1 - 1; k++) {
+		if (NCD[k] > max) {
+			max = NCD[k];
+		}
+	}
+
+	TSDm = max;
+
+	delete zlib;
+}
+
 void Operations::MutualInformation(Graph* g, list<list<IOpair>> TS, double &MI) {
 
-	list<list<IOpair>> aux1 = TS;
+	list<list<IOpair>> aux1(TS);
 	list<list<IOpair>> aux2;
 	MI = 0;
 	int size1 = aux1.size();

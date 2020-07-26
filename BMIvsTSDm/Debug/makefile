@@ -45,7 +45,7 @@ all: BMIvsTSDm
 BMIvsTSDm: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++ -o "BMIvsTSDm" $(OBJS) $(USER_OBJS) $(LIBS) -L/usr/lib -L/usr/lib64 -lz
+	g++ -o "BMIvsTSDm" $(OBJS) $(USER_OBJS) $(LIBS) -L/usr/lib64 -lz
 	@echo 'Finished building target: $@'
 	@echo ' '
 

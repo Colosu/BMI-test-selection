@@ -34,6 +34,7 @@ public:
 	StdMutableFst* product(Graph* g1, Graph* g2);
 	void GenerateRandomTestSuite(Graph* g, int size, list<list<IOpair>> &TS, bool repState, bool repTests);
 	int GenerateTSDmTestSuite(Graph* g, int size, int pool, list<list<IOpair>> &TSMI, list<list<IOpair>> &TSTSDm);
+	void TestSetDiameter(Graph* g, list<list<IOpair>> TS, double &TSDm);
 	void MutualInformation(Graph* g, list<list<IOpair>> TS, double &MI);
 	double MutualInformation(map<IOpair, int>* IOmap, list<IOpair> T1, list<IOpair> T2);
 

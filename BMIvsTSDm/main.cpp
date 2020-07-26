@@ -27,7 +27,7 @@ using namespace fst;
 #define EXP 100
 #define INI 0
 #define TIME 0
-#define POOL 50
+#define POOL 10
 
 int main(int argc, char * argv[]) {
 
@@ -50,33 +50,42 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	OFile << "| #Test | Percentage of success MIGA | Percentage of success TSDm |" << std::endl;
+	OFile << "| #Test | Percentage of success MIGA | Percentage of success TSDm | Percentage of ties winning | Percentage of ties loosing |" << std::endl;
 
 
 	Graph* G;
 	double winsMIGA;
 	double winsTSDm;
-	double valid;
+	double tiesWin;
+	double tiesLose;
 	list<list<IOpair>>* TS[TESTS];
 	Graph* GM[MUT];
 	bool detected[TESTS][MUT];
 	int count[TESTS];
+	double BMI0 = 0;
+	double BMI1 = 0;
+	int BMI = 0;
+	double TSDm0 = 0;
+	double TSDm1 = 0;
+	int TSDm = 0;
 	double meanMIGA = 0;
 	double meanTSDm = 0;
-	double total = 0;
+	double meanWin = 0;
+	double meanLose = 0;
 	int size = LEN;
-//	std::chrono::duration<double> elapsed;
-//	auto start = std::chrono::high_resolution_clock::now();
-//	auto finish = std::chrono::high_resolution_clock::now();
-//	double timeMIGA = 0;
-//	double timeTSDm = 0;
+	std::chrono::duration<double> elapsed;
+	auto start = std::chrono::high_resolution_clock::now();
+	auto finish = std::chrono::high_resolution_clock::now();
+	double timeMIGA = 0;
+	double timeTSDm = 0;
 	int ticks = 0;
 
 	for (int J = 0; J < REP; J++) {
 
 		winsMIGA = 0;
 		winsTSDm = 0;
-		valid = 0;
+		tiesWin = 0;
+		tiesLose = 0;
 
 		for (int I = INI; I < INI + EXP; I++) {
 
@@ -97,84 +106,101 @@ int main(int argc, char * argv[]) {
 			}
 
 			try {
-				//Generate Test Suites
-				for (int i = 0; i < TESTS; i++) {
-					TS[i] = new list<list<IOpair>>();
-				}
+				do {
+					//Generate Test Suites
+					for (int i = 0; i < TESTS; i++) {
+						TS[i] = new list<list<IOpair>>();
+					}
+					for (int i = 0; i < TESTS; i++) {
+						Ops->GenerateRandomTestSuite(G, size, *TS[i], true, false);
+					}
 
-//				start = std::chrono::high_resolution_clock::now();
-				size = Ops->GenerateTSDmTestSuite(G, LEN, POOL, *TS[0], *TS[1]);
-				if (size == -1) {
-					return 1;
-				}
-//				finish = std::chrono::high_resolution_clock::now();
-//				elapsed = finish - start;
-//				timeTSDm += elapsed.count();
-//				start = std::chrono::high_resolution_clock::now();
-//				Ops->GenerateGeneticTestSuite(G, size, *TS[0]);
-//				finish = std::chrono::high_resolution_clock::now();
-//				elapsed = finish - start;
-//				timeMIGA += elapsed.count();
-				for (int i = 2; i < TESTS; i++) {
-					Ops->GenerateRandomTestSuite(G, size, *TS[i], true, false);
-				}
+					//TODO: Compute BMI and TSDm of both TS.
 
-				//Generate Mutants
-				for (int i = 0; i < MUT; i++) {
-					GM[i] = Mutator->mutateState(G);
-					while (!Checker->is_validMutation(GM[i])) {
-						delete GM[i];
+
+					start = std::chrono::high_resolution_clock::now();
+					Ops->MutualInformation(G, *TS[0], BMI0);
+					Ops->MutualInformation(G, *TS[1], BMI1);
+					finish = std::chrono::high_resolution_clock::now();
+					elapsed = finish - start;
+					timeMIGA += elapsed.count();
+
+					start = std::chrono::high_resolution_clock::now();
+					Ops->TestSetDiameter(G, *TS[0], TSDm0);
+					Ops->TestSetDiameter(G, *TS[1], TSDm1);
+					finish = std::chrono::high_resolution_clock::now();
+					elapsed = finish - start;
+					timeTSDm += elapsed.count();
+
+					if (BMI0 < BMI1) {
+						BMI = 0;
+					} else if (BMI0 > BMI1) {
+						BMI = 1;
+					} else {
+						BMI = -1;
+					}
+
+					if (TSDm0 > TSDm1) {
+						TSDm = 0;
+					} else if (TSDm0 < TSDm1) {
+						TSDm = 1;
+					} else {
+						TSDm = -1;
+					}
+
+					//Generate Mutants
+					for (int i = 0; i < MUT; i++) {
 						GM[i] = Mutator->mutateState(G);
-					}
-				}
-
-
-				//Check Fail Detection
-				ticks = 0;
-				for (int i = 0; i < TESTS; i++) {
-					for (int j = 0; j < MUT; j++) {
-						detected[i][j] = Checker->checkMutation(GM[j], *TS[i], ticks);
-					}
-				}
-
-				//Delete test suites
-				for (int i = 0; i < TESTS; i++) {
-					delete TS[i];
-				}
-
-				//Delete mutants
-				for (int i = 0; i < MUT; i++) {
-					delete GM[i];
-				}
-
-				//Count fail detection
-				for (int i = 0; i < TESTS; i++) {
-					count[i] = 0;
-				}
-				for (int i = 0; i < TESTS; i++) {
-					for (int j = 0; j < MUT; j++) {
-						if(detected[i][j]) {
-							count[i]++;
+						while (!Checker->is_validMutation(GM[i])) {
+							delete GM[i];
+							GM[i] = Mutator->mutateState(G);
 						}
 					}
-				}
 
-				//Check if our measure detected the best test suite
-//				if (count[0] > (int)*max_element(&count[1], &count[TESTS])) {
-//					winsMIGA++;
-//				} else if (count[1] > (int)*max_element(&count[2], &count[TESTS])) {
-//					winsTSDm++;
-//				}
-//				if (count[0] != (int)*max_element(&count[1], &count[TESTS]) && count[1] != (int)*max_element(&count[2], &count[TESTS])) {
-//					valid++;
-//				}
-				if (count[0] > count[1]) {
-					winsMIGA++;
-				} else if (count[0] < count[1]) {
-					winsTSDm++;
-				}
-				if (count[0] != count[1]) {
-					valid++;
+
+					//Check Fail Detection
+					ticks = 0;
+					for (int i = 0; i < TESTS; i++) {
+						for (int j = 0; j < MUT; j++) {
+							detected[i][j] = Checker->checkMutation(GM[j], *TS[i], ticks);
+						}
+					}
+
+					//Delete test suites
+					for (int i = 0; i < TESTS; i++) {
+						delete TS[i];
+					}
+
+					//Delete mutants
+					for (int i = 0; i < MUT; i++) {
+						delete GM[i];
+					}
+
+					//Count fail detection
+					for (int i = 0; i < TESTS; i++) {
+						count[i] = 0;
+					}
+					for (int i = 0; i < TESTS; i++) {
+						for (int j = 0; j < MUT; j++) {
+							if(detected[i][j]) {
+								count[i]++;
+							}
+						}
+					}
+				} while (BMI == -1 || TSDm == -1 || count[0] == count[1]);
+
+				if (BMI != TSDm) {
+					if (count[BMI] > count[TSDm]) {
+						winsMIGA++;
+					} else {
+						winsTSDm++;
+					}
+				} else {
+					if (count[BMI] > count[(BMI+1)%2]) {
+						tiesWin++;
+					} else {
+						tiesLose++;
+					}
 				}
 
 			} catch (exception &e) {
@@ -186,22 +212,19 @@ int main(int argc, char * argv[]) {
 		}
 
 		cout << "test " << to_string(J+1) << endl;
-		if (valid != 0) {
-			OFile << J+1 << " & " << winsMIGA/valid  << "\\% & " << winsTSDm/valid << "\\% \\\\" << std::endl;
-		} else {
-			OFile << J+1 << " & ?\\% & ?\\% \\\\" << std::endl;
-		}
+		OFile << J+1 << " & " << winsMIGA/EXP  << "\\% & " << winsTSDm/EXP << "\\% & " << tiesWin/EXP << "\\% & " << tiesLose/EXP << "\\% \\\\" << std::endl;
 		OFile << "\\hline" << std::endl;
 
 		meanMIGA += winsMIGA;
 		meanTSDm += winsTSDm;
-		total += valid;
+		meanWin += tiesWin;
+		meanLose += tiesLose;
 	}
 
-	OFile << "Mean & " << meanMIGA/total << "\\% & " << meanTSDm/total << "\\% \\\\" << std::endl;
+	OFile << "Mean & " << meanMIGA/(EXP*REP) << "\\% & " << meanTSDm/(EXP*REP) << "\\% & " << meanWin/(EXP*REP) << "\\% & " << meanLose/(EXP*REP) << "\\% \\\\" << std::endl;
 	OFile << "\\hline" << std::endl;
-//	OFile << "Time & " << timeMIGA/EXP << "\\% & " << timeTSDm/EXP << "\\% \\\\" << std::endl;
-//	OFile << "\\hline" << std::endl;
+	OFile << "Time & " << timeMIGA/(EXP*REP) << " s & " << timeTSDm/(EXP*REP) << " s \\\\" << std::endl;
+	OFile << "\\hline" << std::endl;
 
 	OFile.close();
 
